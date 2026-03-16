@@ -4,6 +4,7 @@ import json
 import hashlib
 import time
 import random
+import gc
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
@@ -305,7 +306,7 @@ class RAGIndex:
         # Feature #9: Terminal progress
         print("    [שלב 2/3] בניית אינדקס מילים (TF-IDF)...")
 
-        # Word-level TF-IDF
+        # Word-level TF-IDF (memory-optimized: max_features + float32)
         self.word_vectorizer = TfidfVectorizer(
             analyzer="word",
             token_pattern=r"[\u0590-\u05FF\w]{2,}",  # Hebrew + ASCII words, 2+ chars
@@ -313,6 +314,8 @@ class RAGIndex:
             min_df=2,                # ignore ultra-rare terms
             max_df=0.85,             # ignore terms in >85% of chunks
             ngram_range=(1, 2),      # unigrams + bigrams
+            max_features=5000,       # limit vocabulary to save RAM
+            dtype=np.float32,        # half the memory vs float64
         )
         self.word_matrix = self.word_vectorizer.fit_transform(self.chunks)
 
@@ -327,6 +330,8 @@ class RAGIndex:
             min_df=3,
             max_df=0.9,
             sublinear_tf=True,
+            max_features=8000,       # limit char n-gram vocabulary to save RAM
+            dtype=np.float32,        # half the memory vs float64
         )
         self.char_matrix = self.char_vectorizer.fit_transform(self.chunks)
 
@@ -564,6 +569,11 @@ load_yalkut_yosef()
 build_daily_snippets()
 load_cache()
 
+# ── Free RAM: delete the massive raw text now that index + snippets are built ──
+DOCUMENT_TEXT = ""
+gc.collect()
+print("[✓] זיכרון שוחרר: מחרוזת המסמך הגולמית נמחקה")
+
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -575,7 +585,7 @@ def index():
 def status():
     """Return info about the pre-loaded document so the frontend knows it is ready."""
     return jsonify({
-        "ready": bool(DOCUMENT_TEXT) and DOCUMENT_CHUNK_COUNT > 0,
+        "ready": DOCUMENT_CHUNK_COUNT > 0,
         "filename": DOCUMENT_FILENAME,
         "char_count": DOCUMENT_CHAR_COUNT,
         "page_count": DOCUMENT_PAGE_COUNT,
@@ -594,7 +604,7 @@ def ask_question():
     if not question:
         return jsonify({"error": "נא להזין שאלה", "error_type": "input"}), 400
 
-    if not DOCUMENT_TEXT or DOCUMENT_CHUNK_COUNT == 0:
+    if DOCUMENT_CHUNK_COUNT == 0:
         return jsonify({"error": "לא נטען מסמך מקור. ודא שקובץ ילקוט יוסף נמצא בתיקיית הפרויקט.", "error_type": "system"}), 500
 
     # Feature #18: Detect topic
