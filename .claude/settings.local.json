@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-developer-platform)",
+      "Bash(cmd /c \"mkdir C:\\\\Users\\\\User\\\\Desktop\\\\YU\\\\templates & mkdir C:\\\\Users\\\\User\\\\Desktop\\\\YU\\\\static & mkdir C:\\\\Users\\\\User\\\\Desktop\\\\YU\\\\uploads\")",
+      "Bash(pip install:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(python:*)",
+      "WebFetch(domain:www.hebcal.com)",
+      "Bash(curl:*)",
+      "Bash(git -C \"C:/Users/User/Desktop/YU\" rev-parse:*)",
+      "Bash(cmd.exe /c \"git rev-parse --is-inside-work-tree\")",
+      "Bash(\"C:/Program Files/Git/bin/bash.exe\" -c \"cd ''C:/Users/User/Desktop/YU'' && git rev-parse --is-inside-work-tree\")",
+      "Bash(SHELL=\"/c/Program Files/Git/bin/bash.exe\" git rev-parse:*)",
+      "Bash(git -C \"C:/Users/User/Desktop/YU\" status)"
+    ]
+  }
+}

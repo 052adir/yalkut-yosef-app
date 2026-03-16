@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בוט ילקוט יוסף</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Feature #4: html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #5: Dark/Light mode CSS variables
+           ══════════════════════════════════════════════════════════════════ */
+        :root {
+            --primary: #1a5276;
+            --primary-light: #2980b9;
+            --primary-dark: #0e2f44;
+            --gold: #d4a843;
+            --gold-light: #f0d78c;
+            --bg: #f5f1eb;
+            --bg-card: #ffffff;
+            --text: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #ddd;
+            --success: #27ae60;
+            --error: #c0392b;
+            --shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+            --bg-input: #ffffff;
+            --bg-hover: #f0f0f0;
+            --bg-source: linear-gradient(135deg, #fdf8ee, #fefcf5);
+            --bg-answer: linear-gradient(to bottom, #fefdf8, #fff);
+            --chip-bg: #e8f0fe;
+            --chip-text: var(--primary);
+        }
+
+        [data-theme="dark"] {
+            --primary: #5dade2;
+            --primary-light: #85c1e9;
+            --primary-dark: #1b4f72;
+            --gold: #f0d78c;
+            --gold-light: #d4a843;
+            --bg: #1a1a2e;
+            --bg-card: #16213e;
+            --text: #e0e0e0;
+            --text-light: #a0a0a0;
+            --border: #2a2a4a;
+            --success: #2ecc71;
+            --error: #e74c3c;
+            --shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+            --bg-input: #0f3460;
+            --bg-hover: #1f3a5f;
+            --bg-source: linear-gradient(135deg, #1a1a2e, #16213e);
+            --bg-answer: linear-gradient(to bottom, #16213e, #1a1a2e);
+            --chip-bg: #0f3460;
+            --chip-text: #85c1e9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            direction: rtl;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Header
+           ══════════════════════════════════════════════════════════════════ */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+            color: white;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto 0.5rem;
+        }
+
+        .header h1 {
+            font-family: 'Frank Ruhl Libre', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .header .decorative-line {
+            width: 80px;
+            height: 3px;
+            background: var(--gold);
+            margin: 0.6rem auto;
+            border-radius: 2px;
+        }
+
+        /* Feature #5: Dark mode toggle */
+        .theme-toggle {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Heebo', sans-serif;
+            white-space: nowrap;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #13: Disclaimer banner
+           ══════════════════════════════════════════════════════════════════ */
+        .disclaimer-banner {
+            background: linear-gradient(to left, #fff3e0, #ffe0b2);
+            border-bottom: 2px solid var(--gold);
+            padding: 0.7rem 1rem;
+            text-align: center;
+            font-size: 0.88rem;
+            color: #5d4037;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        [data-theme="dark"] .disclaimer-banner {
+            background: linear-gradient(to left, #3e2723, #4e342e);
+            color: #ffcc80;
+            border-color: #d4a843;
+        }
+
+        .disclaimer-close {
+            position: absolute;
+            left: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+            padding: 0.2rem;
+        }
+
+        .disclaimer-close:hover {
+            opacity: 1;
+        }
+
+        .disclaimer-banner.hidden {
+            display: none;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Main Container
+           ══════════════════════════════════════════════════════════════════ */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        /* 2/3 + 1/3 Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .main-content {
+            order: 2;
+            min-width: 0;
+        }
+
+        .sidebar {
+            order: 1;
+            position: sticky;
+            top: 1rem;
+            min-width: 0;
+        }
+
+        /* Smart Send Button Spinner */
+        .send-btn .btn-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .send-btn .btn-spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: btnSpin 0.7s linear infinite;
+        }
+
+        .send-btn.loading .btn-text {
+            display: none;
+        }
+
+        .send-btn.loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .send-btn.loading {
+            background: var(--primary-light);
+            cursor: wait;
+            min-width: 60px;
+            justify-content: center;
+        }
+
+        @keyframes btnSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        [data-theme="dark"] .card {
+            border-color: var(--border);
+        }
+
+        .card-title {
+            font-family: 'Frank Ruhl Libre', serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-title .icon {
+            font-size: 1.4rem;
+        }
+
+        /* Document status badge */
+        .doc-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1rem;
+            background: #e8f5e9;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--success);
+            margin-bottom: 1rem;
+            border: 1px solid #c8e6c9;
+        }
+
+        [data-theme="dark"] .doc-status {
+            background: #1b5e20;
+            border-color: #2e7d32;
+        }
+
+        .doc-status.loading-doc {
+            background: #fff3e0;
+            color: #e65100;
+            border-color: #ffe0b2;
+        }
+
+        [data-theme="dark"] .doc-status.loading-doc {
+            background: #3e2723;
+            color: #ffcc80;
+            border-color: #4e342e;
+        }
+
+        .doc-status.error-doc {
+            background: #fdf0ef;
+            color: var(--error);
+            border-color: #f5c6cb;
+        }
+
+        [data-theme="dark"] .doc-status.error-doc {
+            background: #3c1010;
+            border-color: #5c1a1a;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #7: Topic chips
+           ══════════════════════════════════════════════════════════════════ */
+        .topic-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .topic-chip {
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 0.35rem 0.85rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+            white-space: nowrap;
+        }
+
+        .topic-chip:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Question Area
+           ══════════════════════════════════════════════════════════════════ */
+        .question-input-wrapper {
+            position: relative;
+        }
+
+        .question-input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            padding-left: 4.5rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 1.05rem;
+            resize: none;
+            min-height: 80px;
+            direction: rtl;
+            transition: border-color 0.3s, background 0.3s;
+            line-height: 1.6;
+            background: var(--bg-input);
+            color: var(--text);
+        }
+
+        .question-input:focus {
+            outline: none;
+            border-color: var(--primary-light);
+        }
+
+        .question-input::placeholder {
+            color: var(--text-light);
+        }
+
+        .send-btn {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-family: 'Heebo', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .send-btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-1px);
+        }
+
+        .send-btn:disabled {
+            background: #bbb;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Toolbar buttons (Feature #3 print, #4 export, #6 clear)
+           ══════════════════════════════════════════════════════════════════ */
+        .toolbar {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .toolbar-btn {
+            background: var(--bg-hover);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Answer Area
+           ══════════════════════════════════════════════════════════════════ */
+        .answer-section {
+            display: none;
+        }
+
+        .answer-section.visible {
+            display: block;
+        }
+
+        /* Loading / Typing indicator */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.visible {
+            display: block;
+        }
+
+        .typing-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1.5rem;
+        }
+
+        .typing-bubble {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: var(--bg-answer);
+            border-right: 4px solid var(--gold);
+            padding: 1rem 1.8rem;
+            border-radius: 0 12px 12px 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .typing-bubble span {
+            width: 9px;
+            height: 9px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-bubble span:nth-child(1) { animation-delay: 0s; }
+        .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .typing-label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Chat History */
+        .chat-history {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .chat-item {
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Feature #18: Topic tag above answer */
+        .topic-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            padding: 0.25rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .chat-question {
+            background: var(--primary);
+            color: white;
+            padding: 0.8rem 1.2rem;
+            border-radius: 10px 10px 0 10px;
+            font-size: 1rem;
+            max-width: 85%;
+            margin-right: auto;
+            direction: rtl;
+        }
+
+        .chat-answer {
+            background: var(--bg-answer);
+            border-right: 4px solid var(--gold);
+            padding: 1.2rem 1.5rem;
+            border-radius: 0 10px 10px 0;
+            line-height: 1.9;
+            font-size: 1.02rem;
+        }
+
+        /* Feature #2, #10: Action bar (copy, feedback) */
+        .action-bar {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: var(--bg-hover);
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .action-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .action-btn.active-up {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .action-btn.active-down {
+            background: var(--error);
+            color: white;
+            border-color: var(--error);
+        }
+
+        .cache-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            background: #e8f5e9;
+            color: var(--success);
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            margin-right: 0.3rem;
+        }
+
+        [data-theme="dark"] .cache-badge {
+            background: #1b5e20;
+        }
+
+        /* Error */
+        .error-msg {
+            background: #fdf0ef;
+            color: var(--error);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            display: none;
+            border: 1px solid #f5c6cb;
+            margin-top: 0.8rem;
+        }
+
+        [data-theme="dark"] .error-msg {
+            background: #3c1010;
+            border-color: #5c1a1a;
+        }
+
+        .error-msg.visible {
+            display: block;
+        }
+
+        /* Feature #8: Error type icons */
+        .error-icon {
+            margin-left: 0.3rem;
+        }
+
+        /* Source citation box */
+        .source-box {
+            margin-top: 1rem;
+            padding: 0.9rem 1.2rem;
+            background: var(--bg-source);
+            border-right: 4px solid var(--gold);
+            border-left: 1px solid var(--gold-light);
+            border-top: 1px solid var(--gold-light);
+            border-bottom: 1px solid var(--gold-light);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.93rem;
+            color: var(--primary-dark);
+            line-height: 1.7;
+        }
+
+        [data-theme="dark"] .source-box {
+            color: var(--text);
+        }
+
+        .source-box .source-label {
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Frank Ruhl Libre', serif;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.3rem;
+            font-size: 0.95rem;
+        }
+
+        .source-box .source-text {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* Feature #20: Source structure parts */
+        .source-parts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .source-part {
+            background: rgba(212, 168, 67, 0.15);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: var(--primary-dark);
+            border: 1px solid var(--gold-light);
+        }
+
+        [data-theme="dark"] .source-part {
+            background: rgba(212, 168, 67, 0.1);
+            color: var(--gold);
+        }
+
+        /* Feature #12: Highlighted search terms */
+        .search-highlight {
+            background: rgba(212, 168, 67, 0.35);
+            padding: 0.05rem 0.2rem;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        /* Token info */
+        .token-info {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            text-align: left;
+            margin-top: 0.5rem;
+        }
+
+        .answer-source {
+            margin-top: 0.8rem;
+            padding: 0.5rem 0.8rem;
+            background: var(--bg-hover);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #11: Daily Halacha card
+           ══════════════════════════════════════════════════════════════════ */
+        .daily-halacha-card {
+            background: var(--bg-source);
+            border-right: 4px solid var(--gold);
+            border-radius: 0 12px 12px 0;
+            padding: 1rem 1.3rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .daily-halacha-card.visible {
+            display: block;
+        }
+
+        .daily-halacha-title {
+            font-family: 'Frank Ruhl Libre', serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .daily-halacha-text {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: var(--text);
+        }
+
+        /* Share buttons inside daily halacha */
+        .daily-share-bar {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.7rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .daily-share-btn {
+            background: var(--bg-hover);
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .daily-share-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .daily-share-btn.whatsapp:hover {
+            background: #25D366;
+            border-color: #25D366;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Zmanim & Calendar Widget
+           ══════════════════════════════════════════════════════════════════ */
+        .zmanim-widget {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.2rem 1.3rem;
+            margin-bottom: 0;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        [data-theme="dark"] .zmanim-widget {
+            border-color: var(--border);
+        }
+
+        .zmanim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .zmanim-title {
+            font-family: 'Frank Ruhl Libre', serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .live-clock {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Heebo', sans-serif;
+            direction: ltr;
+            letter-spacing: 1px;
+        }
+
+        .hebrew-date {
+            font-size: 0.95rem;
+            color: var(--text);
+            text-align: center;
+            margin-bottom: 0.8rem;
+            font-weight: 500;
+        }
+
+        .zmanim-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .zman-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.45rem 0.7rem;
+            background: var(--bg-hover);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .zman-item:hover {
+            background: var(--chip-bg);
+        }
+
+        .zman-name {
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .zman-time {
+            color: var(--primary);
+            font-weight: 700;
+            direction: ltr;
+            font-size: 0.9rem;
+        }
+
+        /* Calendar section */
+        .calendar-section {
+            border-top: 1px solid var(--border);
+            padding-top: 0.8rem;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .cal-nav-btn {
+            background: var(--bg-hover);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+        }
+
+        .cal-nav-btn:hover, .cal-nav-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .calendar-view-toggles {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .cal-view-btn {
+            background: var(--bg-hover);
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Heebo', sans-serif;
+        }
+
+        .cal-view-btn:hover, .cal-view-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .calendar-grid {
+            display: grid;
+            gap: 2px;
+        }
+
+        .calendar-grid.weekly, .calendar-grid.daily {
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .calendar-grid.monthly {
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .cal-day-header {
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-light);
+            padding: 0.3rem 0;
+        }
+
+        .cal-day {
+            text-align: center;
+            padding: 0.35rem 0.15rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            cursor: default;
+            transition: background 0.2s;
+            line-height: 1.3;
+        }
+
+        .cal-day:hover {
+            background: var(--chip-bg);
+        }
+
+        .cal-day.today {
+            background: var(--primary);
+            color: white;
+            font-weight: 700;
+        }
+
+        .cal-day.other-month {
+            opacity: 0.35;
+        }
+
+        .cal-day .cal-hebrew {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            display: block;
+        }
+
+        .cal-day.today .cal-hebrew {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .cal-day .cal-greg {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .zmanim-loading {
+            text-align: center;
+            padding: 1rem;
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+
+        /* Limud Yomi section */
+        .limud-yomi-section {
+            border-top: 1px solid var(--border);
+            padding-top: 0.8rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .limud-yomi-title {
+            font-family: 'Frank Ruhl Libre', serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Formatted answer content */
+        .chat-answer ol,
+        .chat-answer ul {
+            margin: 0.5rem 1.5rem 0.5rem 0;
+            padding: 0;
+            padding-right: 1rem;
+        }
+
+        .chat-answer li {
+            margin-bottom: 0.4rem;
+            line-height: 1.8;
+        }
+
+        .chat-answer strong {
+            color: var(--primary-dark);
+        }
+
+        [data-theme="dark"] .chat-answer strong {
+            color: var(--primary-light);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-light);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #1: Full mobile-responsive UI
+           ══════════════════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.7rem;
+            }
+
+            .header .subtitle {
+                font-size: 0.9rem;
+            }
+
+            .header {
+                padding: 1.2rem 0.8rem;
+            }
+
+            .container {
+                padding: 1rem 0.6rem;
+            }
+
+            .card {
+                padding: 1rem;
+                border-radius: 10px;
+            }
+
+            .question-input {
+                font-size: 1rem;
+                padding-left: 4rem;
+                min-height: 70px;
+            }
+
+            .send-btn {
+                padding: 0.5rem 0.9rem;
+                font-size: 0.9rem;
+            }
+
+            .chat-question {
+                max-width: 95%;
+                font-size: 0.95rem;
+            }
+
+            .chat-answer {
+                padding: 1rem;
+                font-size: 0.95rem;
+            }
+
+            .topic-chips {
+                gap: 0.35rem;
+            }
+
+            .topic-chip {
+                font-size: 0.78rem;
+                padding: 0.3rem 0.65rem;
+            }
+
+            .toolbar {
+                gap: 0.35rem;
+            }
+
+            .toolbar-btn {
+                font-size: 0.78rem;
+                padding: 0.35rem 0.6rem;
+            }
+
+            /* Stack grid to single column on mobile */
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .main-content {
+                order: 1;
+            }
+
+            .sidebar {
+                order: 2;
+                position: static;
+            }
+
+            .header-top-bar {
+                flex-direction: row;
+                gap: 0.5rem;
+            }
+
+            .theme-toggle {
+                font-size: 0.78rem;
+                padding: 0.3rem 0.6rem;
+            }
+
+            .zmanim-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.35rem;
+            }
+
+            .zman-item {
+                padding: 0.35rem 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .live-clock {
+                font-size: 1.2rem;
+            }
+
+            .zmanim-widget {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .card {
+                padding: 0.8rem;
+            }
+
+            .question-input {
+                padding-left: 3.5rem;
+            }
+
+            .source-box {
+                padding: 0.7rem 0.9rem;
+            }
+
+            .zmanim-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .zmanim-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           Feature #3: Print styles
+           ══════════════════════════════════════════════════════════════════ */
+        @media print {
+            .header, .disclaimer-banner, .toolbar, .action-bar,
+            .send-btn, .question-input-wrapper, .doc-status,
+            .topic-chips, .daily-halacha-card, .zmanim-widget, .footer,
+            .theme-toggle, .error-msg, .loading, .token-info {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+
+            .chat-answer {
+                background: white;
+                border-right-color: #999;
+            }
+
+            .source-box {
+                background: #f9f9f9;
+                border-right-color: #999;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .main-grid {
+                display: block;
+            }
+
+            .answer-section {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Feature #13: Dismissible Halacha disclaimer banner -->
+    <div class="disclaimer-banner" id="disclaimerBanner">
+        <span>&#9888;</span>
+        <span>אין לסמוך על תשובות המערכת להלכה למעשה &mdash; יש לפנות לרב מוסמך. המערכת מציגה מידע מספרי ילקוט יוסף בלבד.</span>
+        <button class="disclaimer-close" onclick="dismissDisclaimer()" title="סגור">&times;</button>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="header-top-bar">
+                <div></div>
+                <!-- Feature #5: Theme toggle -->
+                <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">&#127769; מצב לילה</button>
+            </div>
+            <h1>&#x2721; שו"ת ילקוט יוסף</h1>
+            <div class="decorative-line"></div>
+            <p class="subtitle">שאלות ותשובות על פי ספרי ילקוט יוסף</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="main-grid">
+
+            <!-- Right Column: Main Content (2/3) -->
+            <div class="main-content">
+
+                <!-- Feature #11: Daily Halacha -->
+                <div class="daily-halacha-card" id="dailyHalacha">
+                    <div class="daily-halacha-title" id="dailyHalachaTitle">&#128218; הלכה יומית</div>
+                    <div class="daily-halacha-text" id="dailyHalachaText"></div>
+                    <div class="daily-share-bar" id="dailyShareBar" style="display:none;">
+                        <button class="daily-share-btn whatsapp" onclick="shareDailyWhatsApp()" title="שתף בוואטסאפ">
+                            &#128172; וואטסאפ
+                        </button>
+                        <button class="daily-share-btn" onclick="copyDailyHalacha()" title="העתק הלכה">
+                            &#128203; העתק
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Question Section -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">&#10068;</span>
+                        שאל שאלה הלכתית
+                    </div>
+
+                    <!-- Document status badge -->
+                    <div class="doc-status loading-doc" id="docStatus">
+                        &#9203; טוען את מסמך ילקוט יוסף...
+                    </div>
+
+                    <!-- Feature #7: Topic chips -->
+                    <div class="topic-chips" id="topicChips">
+                        <button class="topic-chip" onclick="fillTopic('מה הדין לגבי הדלקת נרות שבת?')">&#128367; הלכות שבת</button>
+                        <button class="topic-chip" onclick="fillTopic('מה ברכת הבננה?')">&#128591; ברכות</button>
+                        <button class="topic-chip" onclick="fillTopic('מה דיני תפילת שחרית?')">&#128214; תפילה</button>
+                        <button class="topic-chip" onclick="fillTopic('מה דיני בשר וחלב?')">&#127869; כשרות</button>
+                        <button class="topic-chip" onclick="fillTopic('מה דיני ליל הסדר?')">&#128197; חגים</button>
+                        <button class="topic-chip" onclick="fillTopic('מה דיני מזוזה?')">&#128220; מזוזה</button>
+                        <button class="topic-chip" onclick="fillTopic('מה דיני צדקה?')">&#129330; צדקה</button>
+                    </div>
+
+                    <div class="question-input-wrapper">
+                        <textarea
+                            class="question-input"
+                            id="questionInput"
+                            placeholder="למשל: האם מותר לרכב על אופניים בשבת?"
+                            rows="3"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="askQuestion()" disabled>
+                            <span class="btn-text"><span>&#x27A4;</span> שלח</span>
+                            <span class="btn-spinner"></span>
+                        </button>
+                    </div>
+
+                    <div class="error-msg" id="errorMsg"></div>
+                </div>
+
+                <!-- Typing Indicator -->
+                <div class="loading" id="loading">
+                    <div class="typing-indicator">
+                        <div class="typing-bubble">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="typing-label">מחפש תשובה בילקוט יוסף...</div>
+                    </div>
+                </div>
+
+                <!-- Chat History -->
+                <div class="card answer-section" id="answerSection">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <div class="card-title" style="margin-bottom: 0;">
+                            <span class="icon">&#128220;</span>
+                            תשובות
+                        </div>
+                        <!-- Feature #3, #4, #6: Toolbar -->
+                        <div class="toolbar" style="margin-bottom: 0;">
+                            <button class="toolbar-btn" onclick="printChat()" title="הדפסה">&#128424; הדפס</button>
+                            <button class="toolbar-btn" onclick="exportPDF()" title="ייצוא PDF">&#128196; PDF</button>
+                            <button class="toolbar-btn" onclick="clearChat()" title="ניקוי שיחה">&#128465; נקה</button>
+                        </div>
+                    </div>
+                    <div class="chat-history" id="chatHistory"></div>
+                </div>
+
+            </div>
+
+            <!-- Left Column: Sidebar (1/3) -->
+            <div class="sidebar">
+                <!-- Zmanim, Limud Yomi & Calendar Widget -->
+                <div class="zmanim-widget" id="zmanimWidget">
+                    <div class="zmanim-header">
+                        <div class="zmanim-title">&#128336; זמנים ולוח</div>
+                        <div class="live-clock" id="liveClock">--:--:--</div>
+                    </div>
+                    <div class="hebrew-date" id="hebrewDate">טוען תאריך עברי...</div>
+                    <div class="zmanim-grid" id="zmanimGrid">
+                        <div class="zmanim-loading">&#9203; טוען זמני היום...</div>
+                    </div>
+                    <!-- Limud Yomi Section -->
+                    <div class="limud-yomi-section" id="limudYomiSection">
+                        <div class="limud-yomi-title">&#128218; לימוד יומי</div>
+                        <div class="zmanim-grid" id="limudYomiGrid">
+                            <div class="zmanim-loading">&#9203; טוען לימוד יומי...</div>
+                        </div>
+                    </div>
+                    <div class="calendar-section">
+                        <div class="calendar-header">
+                            <div class="calendar-nav">
+                                <button class="cal-nav-btn" onclick="calNav(-1)">&#9664;</button>
+                                <span id="calMonthLabel" style="font-size:0.88rem;font-weight:600;min-width:100px;text-align:center;"></span>
+                                <button class="cal-nav-btn" onclick="calNav(1)">&#9654;</button>
+                            </div>
+                            <div class="calendar-view-toggles">
+                                <button class="cal-view-btn" data-view="daily" onclick="setCalView('daily')">יום</button>
+                                <button class="cal-view-btn active" data-view="weekly" onclick="setCalView('weekly')">שבוע</button>
+                                <button class="cal-view-btn" data-view="monthly" onclick="setCalView('monthly')">חודש</button>
+                            </div>
+                        </div>
+                        <div class="calendar-grid weekly" id="calendarGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        שו"ת ילקוט יוסף &mdash; מערכת שאלות ותשובות המבוססת על ספרי ילקוט יוסף בלבד
+        <br>
+        <small>&#9888; המערכת עונה אך ורק על סמך ספרי ילקוט יוסף. אין לסמוך על תשובות אלו להלכה למעשה &mdash; יש לפנות לרב מוסמך.</small>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════════════════════════════
+        //  State
+        // ══════════════════════════════════════════════════════════════════
+        let lastQuestion = '';
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #5: Dark/Light mode toggle
+        // ══════════════════════════════════════════════════════════════════
+        function toggleTheme() {
+            const html = document.documentElement;
+            const btn = document.getElementById('themeToggle');
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                btn.innerHTML = '&#127769; מצב לילה';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                btn.innerHTML = '&#9728; מצב יום';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Restore saved theme
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('themeToggle').innerHTML = '&#9728; מצב יום';
+            }
+        })();
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #13: Dismiss disclaimer
+        // ══════════════════════════════════════════════════════════════════
+        function dismissDisclaimer() {
+            document.getElementById('disclaimerBanner').classList.add('hidden');
+            sessionStorage.setItem('disclaimerDismissed', 'true');
+        }
+
+        (function() {
+            if (sessionStorage.getItem('disclaimerDismissed') === 'true') {
+                document.getElementById('disclaimerBanner').classList.add('hidden');
+            }
+        })();
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #7: Topic chips
+        // ══════════════════════════════════════════════════════════════════
+        function fillTopic(question) {
+            const input = document.getElementById('questionInput');
+            input.value = question;
+            input.focus();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  On page load: check document status + daily halacha
+        // ══════════════════════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Status check
+            try {
+                const res = await fetch('/status');
+                const data = await res.json();
+                const badge = document.getElementById('docStatus');
+
+                if (data.ready) {
+                    const pageInfo = data.page_count ? ` | ${data.page_count} עמודים` : '';
+                    const chunkInfo = data.chunk_count ? ` | ${data.chunk_count.toLocaleString()} קטעים באינדקס` : '';
+                    badge.className = 'doc-status';
+                    badge.innerHTML =
+                        `&#9989; מסמך מקור נטען: <strong>${escapeHtml(data.filename)}</strong>${pageInfo} | ${data.char_count.toLocaleString()} תווים${chunkInfo}`;
+                    document.getElementById('sendBtn').disabled = false;
+                    document.getElementById('questionInput').focus();
+                } else {
+                    badge.className = 'doc-status error-doc';
+                    badge.innerHTML = '&#10060; לא נמצא מסמך ילקוט יוסף בתיקיית הפרויקט.';
+                }
+            } catch {
+                const badge = document.getElementById('docStatus');
+                badge.className = 'doc-status error-doc';
+                badge.innerHTML = '&#10060; שגיאה בטעינת המערכת. ודא שהשרת פועל.';
+            }
+
+            // Feature #11: Load daily halacha with topic/siman context
+            try {
+                const res = await fetch('/daily');
+                const data = await res.json();
+                if (data.snippet) {
+                    document.getElementById('dailyHalachaText').textContent = data.snippet;
+                    document.getElementById('dailyHalacha').classList.add('visible');
+                    document.getElementById('dailyShareBar').style.display = 'flex';
+                    // Show topic and siman in the title if available
+                    const titleEl = document.getElementById('dailyHalachaTitle');
+                    let titleText = '\u{1F4DA} \u05D4\u05DC\u05DB\u05D4 \u05D9\u05D5\u05DE\u05D9\u05EA';
+                    if (data.topic || data.siman) {
+                        const ctx = [data.topic, data.siman].filter(Boolean).join(', ');
+                        titleText += ' \u2014 ' + ctx;
+                    }
+                    titleEl.textContent = titleText;
+                }
+            } catch {
+                // silently skip
+            }
+        });
+
+        // ── Enter key to send ────────────────────────────────────────────
+        document.getElementById('questionInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                askQuestion();
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #8: Show error with type-specific icons
+        // ══════════════════════════════════════════════════════════════════
+        const ERROR_ICONS = {
+            auth: '&#128274;',
+            rate_limit: '&#9203;',
+            safety: '&#128721;',
+            timeout: '&#8987;',
+            network: '&#127760;',
+            input: '&#9998;',
+            system: '&#9881;',
+            unknown: '&#10071;',
+        };
+
+        function showError(message, errorType) {
+            const el = document.getElementById('errorMsg');
+            const icon = ERROR_ICONS[errorType] || ERROR_ICONS.unknown;
+            el.innerHTML = `<span class="error-icon">${icon}</span> ${escapeHtml(message)}`;
+            el.classList.add('visible');
+            setTimeout(() => el.classList.remove('visible'), 8000);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Ask question
+        // ══════════════════════════════════════════════════════════════════
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const question = input.value.trim();
+            if (!question) return;
+
+            lastQuestion = question;
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.classList.add('loading');
+            input.disabled = true;
+
+            document.getElementById('loading').classList.add('visible');
+            document.getElementById('errorMsg').classList.remove('visible');
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                document.getElementById('loading').classList.remove('visible');
+
+                if (data.success) {
+                    const answerSection = document.getElementById('answerSection');
+                    answerSection.classList.add('visible');
+
+                    const chatHistory = document.getElementById('chatHistory');
+                    const chatItem = document.createElement('div');
+                    chatItem.className = 'chat-item';
+
+                    const chunksInfo = data.chunks_used ? ` | ${data.chunks_used} קטעים` : '';
+                    const tokenInfo = data.tokens_used && data.tokens_used.input
+                        ? `<div class="token-info">tokens: ${data.tokens_used.input} in / ${data.tokens_used.output} out${chunksInfo}</div>`
+                        : '';
+
+                    // Feature #14: Cache badge
+                    const cacheBadge = data.from_cache
+                        ? '<span class="cache-badge">&#9889; מהמטמון</span>'
+                        : '';
+
+                    // Feature #18: Topic tag
+                    const topicHtml = data.topic
+                        ? `<div class="topic-tag">${escapeHtml(data.topic_icon || '')} ${escapeHtml(data.topic)}</div>`
+                        : '';
+
+                    // Extract source citation from the answer
+                    const { answer: answerText, source: sourceText } = extractSource(data.answer);
+
+                    // Feature #12: Highlight search words in source box
+                    const sourceBoxHtml = sourceText
+                        ? `<div class="source-box">
+                             <div class="source-label">&#128214; מקור מילקוט יוסף</div>
+                             <div class="source-text">${highlightTerms(formatAnswer(sourceText), question)}</div>
+                             ${renderSourceParts(data.source_parts)}
+                           </div>`
+                        : '';
+
+                    const itemId = 'item-' + Date.now();
+
+                    chatItem.innerHTML = `
+                        ${topicHtml}
+                        <div class="chat-question">${escapeHtml(question)}</div>
+                        <div class="chat-answer" id="${itemId}">${formatAnswer(answerText)}</div>
+                        ${sourceBoxHtml}
+                        <div class="action-bar">
+                            <button class="action-btn" onclick="copyAnswer('${itemId}')" title="העתק תשובה">&#128203; העתק</button>
+                            <button class="action-btn" onclick="sendFeedback('${escapeAttr(question)}', 'up', this)" title="תשובה טובה">&#128077;</button>
+                            <button class="action-btn" onclick="sendFeedback('${escapeAttr(question)}', 'down', this)" title="תשובה לא טובה">&#128078;</button>
+                            ${cacheBadge}
+                        </div>
+                        <div class="answer-source">&#128213; קובץ: ${escapeHtml(data.source_file)}${chunksInfo}</div>
+                        ${tokenInfo}
+                    `;
+
+                    chatHistory.insertBefore(chatItem, chatHistory.firstChild);
+                    input.value = '';
+                } else {
+                    showError(data.error, data.error_type);
+                }
+            } catch {
+                document.getElementById('loading').classList.remove('visible');
+                showError('שגיאה בשליחת השאלה. בדוק את חיבור האינטרנט ונסה שוב.', 'network');
+            }
+
+            sendBtn.disabled = false;
+            sendBtn.classList.remove('loading');
+            input.disabled = false;
+            input.focus();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #2: Copy Answer
+        // ══════════════════════════════════════════════════════════════════
+        function copyAnswer(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.innerText || el.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('התשובה הועתקה!');
+            }).catch(() => {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('התשובה הועתקה!');
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.textContent = msg;
+            toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--primary);color:white;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.9rem;z-index:9999;animation:fadeIn 0.3s ease;';
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2000);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #10: Feedback (thumbs up/down)
+        // ══════════════════════════════════════════════════════════════════
+        async function sendFeedback(question, rating, btn) {
+            try {
+                await fetch('/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: decodeURIComponent(question), rating })
+                });
+                btn.classList.add(rating === 'up' ? 'active-up' : 'active-down');
+                // Disable both buttons in the same action-bar
+                const bar = btn.closest('.action-bar');
+                bar.querySelectorAll('.action-btn').forEach(b => {
+                    if (b.textContent.includes('👍') || b.textContent.includes('👎')) {
+                        b.style.pointerEvents = 'none';
+                    }
+                });
+            } catch {
+                // silently fail
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #3: Print
+        // ══════════════════════════════════════════════════════════════════
+        function printChat() {
+            window.print();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #4: Export to PDF
+        // ══════════════════════════════════════════════════════════════════
+        function exportPDF() {
+            const chatEl = document.getElementById('chatHistory');
+            if (!chatEl || !chatEl.innerHTML.trim()) {
+                showToast('אין תשובות לייצוא');
+                return;
+            }
+            const opt = {
+                margin: 10,
+                filename: 'שאלות-ותשובות-ילקוט-יוסף.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            // Clone and prepare for PDF
+            const clone = chatEl.cloneNode(true);
+            clone.querySelectorAll('.action-bar, .token-info').forEach(el => el.remove());
+            clone.style.direction = 'rtl';
+            clone.style.fontFamily = 'Heebo, sans-serif';
+            clone.style.padding = '10px';
+            html2pdf().set(opt).from(clone).save();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #6: Clear Chat
+        // ══════════════════════════════════════════════════════════════════
+        function clearChat() {
+            const chatHistory = document.getElementById('chatHistory');
+            if (!chatHistory.innerHTML.trim()) return;
+            chatHistory.innerHTML = '';
+            document.getElementById('answerSection').classList.remove('visible');
+            showToast('השיחה נוקתה');
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #12: Highlight search terms in source box
+        // ══════════════════════════════════════════════════════════════════
+        function highlightTerms(html, query) {
+            if (!query) return html;
+            // Extract meaningful words from query (3+ chars, skip common words)
+            const stopWords = new Set(['של', 'את', 'על', 'עם', 'כי', 'לא', 'אם', 'גם', 'או', 'כל', 'מה', 'איך', 'האם', 'הוא', 'היא']);
+            const words = query.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
+            if (!words.length) return html;
+
+            let result = html;
+            for (const word of words) {
+                const safeWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${safeWord})`, 'g');
+                // Only highlight outside of HTML tags
+                result = result.replace(/>([^<]*)</g, (match, content) => {
+                    return '>' + content.replace(regex, '<span class="search-highlight">$1</span>') + '<';
+                });
+            }
+            return result;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Feature #20: Render structured source parts
+        // ══════════════════════════════════════════════════════════════════
+        function renderSourceParts(parts) {
+            if (!parts || !parts.length) return '';
+            const tags = parts.map(p => `<span class="source-part">${escapeHtml(p)}</span>`).join('');
+            return `<div class="source-parts">${tags}</div>`;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Helpers
+        // ══════════════════════════════════════════════════════════════════
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            return encodeURIComponent(text);
+        }
+
+        function extractSource(text) {
+            const lines = text.split('\n');
+            let sourceStartIdx = -1;
+
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const trimmed = lines[i].trim();
+                if (trimmed.startsWith('מקור:') || trimmed.startsWith('**מקור:**') || trimmed.startsWith('**מקור:')) {
+                    sourceStartIdx = i;
+                    break;
+                }
+            }
+
+            if (sourceStartIdx >= 0) {
+                const answerLines = lines.slice(0, sourceStartIdx);
+                const sourceLines = lines.slice(sourceStartIdx);
+                // Remove the "מקור:" prefix (with or without bold markers)
+                sourceLines[0] = sourceLines[0].replace(/^\*{0,2}מקור:\*{0,2}\s*/, '');
+                return {
+                    answer: answerLines.join('\n').trim(),
+                    source: sourceLines.join('\n').trim()
+                };
+            }
+
+            return { answer: text, source: null };
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Daily Halacha Share
+        // ══════════════════════════════════════════════════════════════════
+        function shareDailyWhatsApp() {
+            const title = document.getElementById('dailyHalachaTitle').textContent;
+            const text = document.getElementById('dailyHalachaText').textContent;
+            if (!text) return;
+            const msg = encodeURIComponent(title + ' (מילקוט יוסף):\n\n' + text);
+            window.open('https://wa.me/?text=' + msg, '_blank');
+        }
+
+        function copyDailyHalacha() {
+            const title = document.getElementById('dailyHalachaTitle').textContent;
+            const text = document.getElementById('dailyHalachaText').textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(title + ' (מילקוט יוסף):\n\n' + text).then(() => {
+                showToast('ההלכה הועתקה!');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('ההלכה הועתקה!');
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Live Clock (Israel timezone)
+        // ══════════════════════════════════════════════════════════════════
+        function updateClock() {
+            const now = new Date();
+            const opts = { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('liveClock').textContent = now.toLocaleTimeString('he-IL', opts);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Zmanim & Hebrew Date (Hebcal API)
+        // ══════════════════════════════════════════════════════════════════
+        const ZMAN_LABELS = {
+            'alotHaShachar': 'עלות השחר',
+            'misheyakir': 'משיכיר',
+            'sunrise': 'הנץ החמה',
+            'sofZmanShma': 'סוף זמן ק"ש (גר"א)',
+            'sofZmanShmaMGA': 'סוף זמן ק"ש (מג"א)',
+            'sofZmanTfilla': 'סוף זמן תפילה (גר"א)',
+            'chatzot': 'חצות היום',
+            'minchaGedola': 'מנחה גדולה',
+            'minchaKetana': 'מנחה קטנה',
+            'plagHaMincha': 'פלג המנחה',
+            'sunset': 'שקיעה',
+            'tzeit7083deg': 'צאת הכוכבים',
+        };
+
+        const ZMAN_ORDER = [
+            'alotHaShachar', 'misheyakir', 'sunrise',
+            'sofZmanShma', 'sofZmanShmaMGA',
+            'sofZmanTfilla',
+            'chatzot', 'minchaGedola', 'minchaKetana',
+            'plagHaMincha', 'sunset', 'tzeit7083deg',
+        ];
+
+        async function loadZmanim() {
+            try {
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0];
+                // Hebcal Zmanim API — Jerusalem (geonameid 281184)
+                const res = await fetch(`https://www.hebcal.com/zmanim?cfg=json&geonameid=281184&date=${dateStr}`);
+                const data = await res.json();
+
+                const grid = document.getElementById('zmanimGrid');
+                grid.innerHTML = '';
+
+                const times = data.times || {};
+                for (const key of ZMAN_ORDER) {
+                    const val = times[key];
+                    if (!val) continue;
+                    const label = ZMAN_LABELS[key] || key;
+                    const timeStr = new Date(val).toLocaleTimeString('he-IL', {
+                        timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false
+                    });
+                    const item = document.createElement('div');
+                    item.className = 'zman-item';
+                    item.innerHTML = `<span class="zman-name">${escapeHtml(label)}</span><span class="zman-time">${timeStr}</span>`;
+                    grid.appendChild(item);
+                }
+
+                if (!grid.children.length) {
+                    grid.innerHTML = '<div class="zmanim-loading">לא נמצאו זמנים</div>';
+                }
+            } catch {
+                document.getElementById('zmanimGrid').innerHTML = '<div class="zmanim-loading">שגיאה בטעינת זמנים</div>';
+            }
+        }
+
+        async function loadHebrewDate() {
+            try {
+                const today = new Date();
+                const y = today.getFullYear(), m = today.getMonth() + 1, d = today.getDate();
+                const res = await fetch(`https://www.hebcal.com/converter?cfg=json&gy=${y}&gm=${m}&gd=${d}&g2h=1`);
+                const data = await res.json();
+                const heb = data.hebrew || '';
+                document.getElementById('hebrewDate').textContent = heb;
+            } catch {
+                document.getElementById('hebrewDate').textContent = '';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Limud Yomi (Hebcal Learning API)
+        // ══════════════════════════════════════════════════════════════════
+        const LIMUD_LABELS = {
+            'dafyomi': 'דף יומי (בבלי)',
+            'yerushalmi': 'ירושלמי יומי',
+            'mishnayomi': 'משנה יומית',
+            'nachyomi': 'נ"ך יומי',
+            'rambam1': 'רמב"ם יומי',
+            'chofetzChaim': 'חפץ חיים יומי',
+            'shpiralshon': 'שמירת הלשון',
+            'psalms': 'תהילים יומי',
+            'dafWeekly': 'דף שבועי',
+            'pirkeiAvot': 'פרקי אבות',
+            'hebdate': '',
+        };
+
+        async function loadLimudYomi() {
+            try {
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0];
+                // Use the Hebcal main API which returns proper JSON with Daf Yomi
+                const res = await fetch(`https://www.hebcal.com/hebcal?v=1&cfg=json&start=${dateStr}&end=${dateStr}&D=on&d=off&F=off&leyning=off`);
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+
+                const grid = document.getElementById('limudYomiGrid');
+                grid.innerHTML = '';
+
+                const items = (data.items || []).filter(item => item.category && item.category !== 'hebdate');
+
+                if (items.length) {
+                    for (const item of items) {
+                        const cat = item.category || '';
+                        const label = LIMUD_LABELS[cat] || cat || 'לימוד יומי';
+                        const title = item.title || '';
+                        const el = document.createElement('div');
+                        el.className = 'zman-item';
+                        el.innerHTML = `<span class="zman-name">${escapeHtml(label)}</span><span class="zman-time" style="font-size:0.82rem;">${escapeHtml(title)}</span>`;
+                        grid.appendChild(el);
+                    }
+                } else {
+                    grid.innerHTML = '<div class="zmanim-loading">לא נמצא לימוד יומי</div>';
+                }
+            } catch {
+                document.getElementById('limudYomiGrid').innerHTML = '<div class="zmanim-loading">שגיאה בטעינת לימוד יומי</div>';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Mini Jewish Calendar
+        // ══════════════════════════════════════════════════════════════════
+        let calViewMode = 'weekly'; // daily | weekly | monthly
+        let calOffset = 0; // months offset from current
+        const HEB_DAYS = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש\''];
+        const HEB_MONTHS_GREG = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+        // Hebrew day letters for conversion
+        const HEB_NUMERALS = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י',
+            'יא', 'יב', 'יג', 'יד', 'טו', 'טז', 'יז', 'יח', 'יט', 'כ',
+            'כא', 'כב', 'כג', 'כד', 'כה', 'כו', 'כז', 'כח', 'כט', 'ל'];
+
+        // Cache for Hebrew dates
+        let hebDateCache = {};
+
+        function setCalView(view) {
+            calViewMode = view;
+            document.querySelectorAll('.cal-view-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.view === view);
+            });
+            renderCalendar();
+        }
+
+        function calNav(dir) {
+            if (calViewMode === 'daily') {
+                calOffset += dir; // offset in days
+            } else {
+                calOffset += dir; // offset in months for weekly/monthly
+            }
+            renderCalendar();
+        }
+
+        async function fetchHebDatesForMonth(year, month) {
+            const cacheKey = `${year}-${month}`;
+            if (hebDateCache[cacheKey]) return hebDateCache[cacheKey];
+
+            try {
+                const daysInMonth = new Date(year, month, 0).getDate();
+                // Fetch start and end of month Hebrew dates
+                const results = {};
+                // Batch: fetch converter for 1st and last day, then interpolate
+                // For simplicity, fetch just start date and use offset
+                const res = await fetch(`https://www.hebcal.com/converter?cfg=json&gy=${year}&gm=${month}&gd=1&g2h=1`);
+                const startData = await res.json();
+
+                // Store day 1
+                results[1] = startData.hd || '';
+
+                // For other days, increment Hebrew day (approximate — good enough for display)
+                let hd = startData.hd || 1;
+                for (let d = 2; d <= daysInMonth; d++) {
+                    hd++;
+                    if (hd > 30) hd = 1; // reset (approximate)
+                    results[d] = hd;
+                }
+
+                hebDateCache[cacheKey] = results;
+                return results;
+            } catch {
+                return {};
+            }
+        }
+
+        async function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const label = document.getElementById('calMonthLabel');
+            const today = new Date();
+
+            if (calViewMode === 'daily') {
+                grid.className = 'calendar-grid daily';
+                const target = new Date(today);
+                target.setDate(target.getDate() + calOffset);
+
+                const dayOfWeek = (target.getDay() + 1) % 7; // Sunday=0 in JS
+                label.textContent = target.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: 'long', day: 'numeric' });
+
+                grid.innerHTML = '';
+                // Show day headers
+                for (let i = 0; i < 7; i++) {
+                    const hdr = document.createElement('div');
+                    hdr.className = 'cal-day-header';
+                    hdr.textContent = HEB_DAYS[i];
+                    grid.appendChild(hdr);
+                }
+                // Show single week row with only the target day filled
+                for (let i = 0; i < 7; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-day';
+                    if (i === dayOfWeek) {
+                        const isToday = target.toDateString() === today.toDateString();
+                        cell.classList.toggle('today', isToday);
+                        cell.innerHTML = `<span class="cal-greg">${target.getDate()}</span>`;
+                    }
+                    grid.appendChild(cell);
+                }
+                return;
+            }
+
+            // Monthly or weekly
+            const baseDate = new Date(today.getFullYear(), today.getMonth() + calOffset, 1);
+            const year = baseDate.getFullYear();
+            const month = baseDate.getMonth(); // 0-based
+
+            label.textContent = `${HEB_MONTHS_GREG[month]} ${year}`;
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDow = (new Date(year, month, 1).getDay() + 1) % 7; // 0=Sun→shift for Hebrew week
+
+            // Fetch Hebrew dates
+            const hebDates = await fetchHebDatesForMonth(year, month + 1);
+
+            grid.innerHTML = '';
+
+            if (calViewMode === 'monthly') {
+                grid.className = 'calendar-grid monthly';
+
+                // Day headers
+                for (let i = 0; i < 7; i++) {
+                    const hdr = document.createElement('div');
+                    hdr.className = 'cal-day-header';
+                    hdr.textContent = HEB_DAYS[i];
+                    grid.appendChild(hdr);
+                }
+
+                // Previous month padding
+                const prevMonthDays = new Date(year, month, 0).getDate();
+                for (let i = 0; i < firstDow; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-day other-month';
+                    cell.innerHTML = `<span class="cal-greg">${prevMonthDays - firstDow + 1 + i}</span>`;
+                    grid.appendChild(cell);
+                }
+
+                // Current month days
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-day';
+                    const isToday = (d === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+                    if (isToday) cell.classList.add('today');
+
+                    const hd = hebDates[d];
+                    const hebStr = (typeof hd === 'number' && hd >= 1 && hd <= 30) ? HEB_NUMERALS[hd] : '';
+                    cell.innerHTML = `<span class="cal-greg">${d}</span>${hebStr ? '<span class="cal-hebrew">' + hebStr + '</span>' : ''}`;
+                    grid.appendChild(cell);
+                }
+
+                // Next month padding
+                const totalCells = firstDow + daysInMonth;
+                const remaining = (7 - totalCells % 7) % 7;
+                for (let i = 1; i <= remaining; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-day other-month';
+                    cell.innerHTML = `<span class="cal-greg">${i}</span>`;
+                    grid.appendChild(cell);
+                }
+
+            } else {
+                // Weekly view: show the week containing today (with calOffset as month offset)
+                grid.className = 'calendar-grid weekly';
+
+                // Find which week to show
+                const refDate = new Date(year, month, today.getMonth() === month && today.getFullYear() === year ? today.getDate() : 1);
+                const refDow = (refDate.getDay() + 1) % 7;
+                const weekStart = new Date(refDate);
+                weekStart.setDate(weekStart.getDate() - refDow);
+
+                // Day headers
+                for (let i = 0; i < 7; i++) {
+                    const hdr = document.createElement('div');
+                    hdr.className = 'cal-day-header';
+                    hdr.textContent = HEB_DAYS[i];
+                    grid.appendChild(hdr);
+                }
+
+                // 7 days
+                for (let i = 0; i < 7; i++) {
+                    const cellDate = new Date(weekStart);
+                    cellDate.setDate(cellDate.getDate() + i);
+                    const cell = document.createElement('div');
+                    cell.className = 'cal-day';
+                    const isToday = cellDate.toDateString() === today.toDateString();
+                    if (isToday) cell.classList.add('today');
+                    if (cellDate.getMonth() !== month) cell.classList.add('other-month');
+
+                    const d = cellDate.getDate();
+                    const cellMonth = cellDate.getMonth() + 1;
+                    const cellYear = cellDate.getFullYear();
+                    // Try to get Hebrew date from cache
+                    const ck = `${cellYear}-${cellMonth}`;
+                    const hd = (hebDateCache[ck] && hebDateCache[ck][d]) || '';
+                    const hebStr = (typeof hd === 'number' && hd >= 1 && hd <= 30) ? HEB_NUMERALS[hd] : '';
+
+                    cell.innerHTML = `<span class="cal-greg">${d}</span>${hebStr ? '<span class="cal-hebrew">' + hebStr + '</span>' : ''}`;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        // Initialize Zmanim, Hebrew Date, Limud Yomi, and Calendar on load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadZmanim();
+            loadHebrewDate();
+            loadLimudYomi();
+            renderCalendar();
+        });
+
+        function formatAnswer(text) {
+            let formatted = escapeHtml(text);
+
+            // Bold: **text**
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Process lines for lists
+            const lines = formatted.split('\n');
+            const result = [];
+            let inOl = false;
+            let inUl = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const olMatch = line.match(/^(\d+)\.\s+(.*)/);
+                const ulMatch = line.match(/^[-•]\s+(.*)/);
+
+                if (olMatch) {
+                    if (!inOl) {
+                        if (inUl) { result.push('</ul>'); inUl = false; }
+                        result.push('<ol>');
+                        inOl = true;
+                    }
+                    result.push('<li>' + olMatch[2] + '</li>');
+                } else if (ulMatch) {
+                    if (!inUl) {
+                        if (inOl) { result.push('</ol>'); inOl = false; }
+                        result.push('<ul>');
+                        inUl = true;
+                    }
+                    result.push('<li>' + ulMatch[1] + '</li>');
+                } else {
+                    if (inOl) { result.push('</ol>'); inOl = false; }
+                    if (inUl) { result.push('</ul>'); inUl = false; }
+                    if (line.trim() === '') {
+                        result.push('<br>');
+                    } else {
+                        result.push(line + '<br>');
+                    }
+                }
+            }
+
+            if (inOl) result.push('</ol>');
+            if (inUl) result.push('</ul>');
+
+            let html = result.join('');
+            // Clean trailing/excessive <br> tags
+            html = html.replace(/(<br>){3,}/g, '<br><br>');
+            html = html.replace(/(<br>)+$/g, '');
+            return html;
+        }
+    </script>
+
+</body>
+</html>

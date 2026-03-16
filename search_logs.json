@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "2026-03-15T12:27:44.448519",
+    "question": "האם מותר להניח בשר קר על שולחן חלבי?",
+    "topic": "כשרות",
+    "answer_found": true,
+    "chunks_used": 10,
+    "from_cache": false
+  },
+  {
+    "timestamp": "2026-03-15T12:34:41.985222",
+    "question": "מה זה פלג המנחה?",
+    "topic": "תפילה",
+    "answer_found": true,
+    "chunks_used": 10,
+    "from_cache": false
+  },
+  {
+    "timestamp": "2026-03-15T14:26:35.035091",
+    "question": "מה ההכשר הכי טוב שיש?",
+    "topic": "כשרות",
+    "answer_found": false,
+    "chunks_used": 10,
+    "from_cache": false
+  },
+  {
+    "timestamp": "2026-03-15T15:55:27.200879",
+    "question": "האם מותר לבדוק חמץ ב-כ בניסן?",
+    "topic": null,
+    "answer_found": true,
+    "chunks_used": 10,
+    "from_cache": false
+  },
+  {
+    "timestamp": "2026-03-15T16:38:23.490058",
+    "question": "באיזה צד שמים מוזה?",
+    "topic": null,
+    "answer_found": false,
+    "chunks_used": 10,
+    "from_cache": false
+  },
+  {
+    "timestamp": "2026-03-15T16:38:46.609181",
+    "question": "באיזה צד קובעים מזוזה?",
+    "topic": "מזוזה ותפילין",
+    "answer_found": true,
+    "chunks_used": 10,
+    "from_cache": false
+  }
+]
