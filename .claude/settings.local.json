@@ -14,7 +14,8 @@
       "Bash(cmd.exe /c \"git rev-parse --is-inside-work-tree\")",
       "Bash(\"C:/Program Files/Git/bin/bash.exe\" -c \"cd ''C:/Users/User/Desktop/YU'' && git rev-parse --is-inside-work-tree\")",
       "Bash(SHELL=\"/c/Program Files/Git/bin/bash.exe\" git rev-parse:*)",
-      "Bash(git -C \"C:/Users/User/Desktop/YU\" status)"
+      "Bash(git -C \"C:/Users/User/Desktop/YU\" status)",
+      "Bash(SHELL=/usr/bin/bash python:*)"
     ]
   }
 }

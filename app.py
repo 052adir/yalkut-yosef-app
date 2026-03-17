@@ -2,17 +2,13 @@ import os
 import re
 import json
 import hashlib
-import time
 import random
-import gc
+import joblib
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from PyPDF2 import PdfReader
-from docx import Document as DocxDocument
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
@@ -22,6 +18,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # ── Gemini client ──────────────────────────────────────────────────────────────
 gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -166,222 +163,6 @@ def log_search(question, topic, found, chunks_used, cached):
         pass
 
 
-# ── Text extraction helpers ───────────────────────────────────────────────────
-def extract_text_from_pdf(filepath):
-    """Extract text from a PDF file, preserving page numbers."""
-    reader = PdfReader(filepath)
-    text_parts = []
-    total_pages = len(reader.pages)
-    for i, page in enumerate(reader.pages, 1):
-        # Feature #9: Terminal progress
-        if i % 50 == 0 or i == total_pages:
-            pct = int(i / total_pages * 100)
-            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            print(f"\r    [{bar}] {pct}% ({i}/{total_pages} עמודים)", end="", flush=True)
-        page_text = page.extract_text()
-        if page_text:
-            text_parts.append(f"--- עמוד {i} ---\n{page_text}")
-    print()  # newline after progress bar
-    return "\n\n".join(text_parts)
-
-
-def extract_text_from_docx(filepath):
-    """Extract text from a DOCX file."""
-    doc = DocxDocument(filepath)
-    text_parts = []
-    total_paras = len(doc.paragraphs)
-    for i, para in enumerate(doc.paragraphs, 1):
-        # Feature #9: Terminal progress
-        if i % 500 == 0 or i == total_paras:
-            pct = int(i / total_paras * 100)
-            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            print(f"\r    [{bar}] {pct}% ({i}/{total_paras} פסקאות)", end="", flush=True)
-        if para.text.strip():
-            text_parts.append(para.text)
-    print()  # newline after progress bar
-    return "\n".join(text_parts)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  RAG Index — local TF-IDF retrieval (zero API calls)
-# ══════════════════════════════════════════════════════════════════════════════
-
-class RAGIndex:
-    """Lightweight local search index using TF-IDF + cosine similarity.
-
-    - Chunks the document into meaningful sections (~500-2000 chars)
-    - Feature #15: Chunk overlap for better context continuity
-    - Feature #17: Character n-gram analyzer for fuzzy/typo tolerance
-    - Builds a TF-IDF matrix entirely offline (no API calls)
-    - At query time, vectorises the question and returns the top-K chunks
-    """
-
-    # Regex patterns that mark section boundaries in Yalkut Yosef text
-    SECTION_PATTERNS = re.compile(
-        r"(?:^|\n)"                       # start of line
-        r"(?:"
-        r"סימן\s+[א-ת\"\']+|"            # סימן א', סימן ב', ...
-        r"פרק\s+[א-ת\"\'0-9]+|"          # פרק א', ...
-        r"הלכות\s+\S+|"                   # הלכות שבת, ...
-        r"סעיף\s+[א-ת\"\'0-9]+|"         # סעיף א', ...
-        r"---\s*עמוד\s+\d+\s*---"         # --- עמוד 5 --- (PDF page markers)
-        r")",
-        re.MULTILINE,
-    )
-
-    def __init__(self, min_chunk_chars=200, max_chunk_chars=2000, overlap_chars=150):
-        self.min_chunk = min_chunk_chars
-        self.max_chunk = max_chunk_chars
-        self.overlap_chars = overlap_chars  # Feature #15
-        self.chunks: list[str] = []
-        self.word_vectorizer: TfidfVectorizer | None = None
-        self.char_vectorizer: TfidfVectorizer | None = None  # Feature #17
-        self.word_matrix = None
-        self.char_matrix = None
-
-    # ── 1. Chunking (with overlap) ────────────────────────────────────────
-    def _split_into_chunks(self, text: str) -> list[str]:
-        """Split text into chunks, trying to respect section boundaries.
-        Feature #15: Adds overlap between chunks for better context continuity."""
-        # First pass: split on blank-line boundaries
-        raw_paragraphs = re.split(r"\n{2,}", text)
-
-        chunks: list[str] = []
-        current = ""
-
-        for para in raw_paragraphs:
-            para = para.strip()
-            if not para:
-                continue
-
-            # Check if this paragraph starts a new section
-            is_section_start = bool(self.SECTION_PATTERNS.match(para))
-
-            # If adding this paragraph would exceed max, or it's a new section
-            # and current is already substantial, flush current chunk
-            if current and (
-                len(current) + len(para) + 1 > self.max_chunk
-                or (is_section_start and len(current) >= self.min_chunk)
-            ):
-                chunks.append(current)
-                current = para
-            else:
-                current = current + "\n" + para if current else para
-
-        if current and len(current.strip()) > 30:
-            chunks.append(current)
-
-        # Second pass: merge tiny chunks with their neighbour
-        merged: list[str] = []
-        for chunk in chunks:
-            if merged and len(merged[-1]) < self.min_chunk:
-                merged[-1] = merged[-1] + "\n" + chunk
-            else:
-                merged.append(chunk)
-
-        # Feature #15: Add overlap — carry tail of previous chunk into next
-        if self.overlap_chars > 0 and len(merged) > 1:
-            overlapped = [merged[0]]
-            for i in range(1, len(merged)):
-                prev_tail = merged[i - 1][-self.overlap_chars:]
-                overlapped.append(prev_tail + "\n" + merged[i])
-            return overlapped
-
-        return merged
-
-    # ── 2. Build index ───────────────────────────────────────────────────
-    def build(self, text: str):
-        """Chunk the text and build the TF-IDF index."""
-        t0 = time.time()
-
-        # Feature #9: Terminal progress
-        print("    [שלב 1/3] פיצול לקטעים...")
-        self.chunks = self._split_into_chunks(text)
-        print(f"    קטעים שנוצרו: {len(self.chunks):,}")
-
-        if not self.chunks:
-            print("[!] אין קטעים – אינדקס לא נוצר")
-            return
-
-        # Feature #9: Terminal progress
-        print("    [שלב 2/3] בניית אינדקס מילים (TF-IDF)...")
-
-        # Word-level TF-IDF (memory-optimized: max_features + float32)
-        self.word_vectorizer = TfidfVectorizer(
-            analyzer="word",
-            token_pattern=r"[\u0590-\u05FF\w]{2,}",  # Hebrew + ASCII words, 2+ chars
-            sublinear_tf=True,       # log(1+tf) — BM25-like dampening
-            min_df=2,                # ignore ultra-rare terms
-            max_df=0.85,             # ignore terms in >85% of chunks
-            ngram_range=(1, 2),      # unigrams + bigrams
-            max_features=5000,       # limit vocabulary to save RAM
-            dtype=np.float32,        # half the memory vs float64
-        )
-        self.word_matrix = self.word_vectorizer.fit_transform(self.chunks)
-
-        vocab_size = len(self.word_vectorizer.vocabulary_)
-        print(f"    גודל מילון מילים: {vocab_size:,} מונחים")
-
-        # Feature #17: Character n-gram TF-IDF for fuzzy matching / typo tolerance
-        print("    [שלב 3/3] בניית אינדקס תווים (fuzzy matching)...")
-        self.char_vectorizer = TfidfVectorizer(
-            analyzer="char_wb",
-            ngram_range=(3, 5),      # character 3-grams to 5-grams
-            min_df=3,
-            max_df=0.9,
-            sublinear_tf=True,
-            max_features=8000,       # limit char n-gram vocabulary to save RAM
-            dtype=np.float32,        # half the memory vs float64
-        )
-        self.char_matrix = self.char_vectorizer.fit_transform(self.chunks)
-
-        char_vocab_size = len(self.char_vectorizer.vocabulary_)
-        print(f"    גודל מילון תווים: {char_vocab_size:,} n-grams")
-
-        elapsed = time.time() - t0
-        print(f"    זמן בניית אינדקס: {elapsed:.1f} שניות")
-
-    # ── 3. Search (hybrid word + char n-gram) ────────────────────────────
-    def search(self, query: str, top_k: int = 10) -> list[dict]:
-        """Return the top-K most relevant chunks for the query.
-        Feature #16: Applies Hebrew stop-word removal.
-        Feature #17: Combines word and char n-gram scores for fuzzy matching."""
-        if self.word_vectorizer is None or self.word_matrix is None:
-            return []
-
-        # Feature #16: Remove stop words from query
-        clean_query = remove_stop_words(query)
-
-        # Word-level scores
-        word_vec = self.word_vectorizer.transform([clean_query])
-        word_scores = cosine_similarity(word_vec, self.word_matrix).flatten()
-
-        # Feature #17: Character n-gram scores for fuzzy matching
-        char_scores = np.zeros_like(word_scores)
-        if self.char_vectorizer is not None and self.char_matrix is not None:
-            char_vec = self.char_vectorizer.transform([query])  # use original query for char n-grams
-            char_scores = cosine_similarity(char_vec, self.char_matrix).flatten()
-
-        # Combine: 70% word + 30% char n-gram
-        combined_scores = 0.7 * word_scores + 0.3 * char_scores
-
-        # Get top-K indices, sorted by score descending
-        top_indices = np.argsort(combined_scores)[::-1][:top_k]
-
-        results = []
-        for idx in top_indices:
-            score = float(combined_scores[idx])
-            if score < 0.01:
-                break  # below noise floor — skip
-            results.append({
-                "chunk_id": int(idx),
-                "score": round(score, 4),
-                "text": self.chunks[idx],
-            })
-
-        return results
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 #  Feature #20: Enhanced source parser
 # ══════════════════════════════════════════════════════════════════════════════
@@ -406,173 +187,108 @@ def parse_source_structure(source_text):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  Pre-load document + build RAG index at startup
+#  Load pre-built index from data/ (NO .docx processing at startup!)
 # ══════════════════════════════════════════════════════════════════════════════
 
-DOCUMENT_TEXT = ""
 DOCUMENT_FILENAME = ""
 DOCUMENT_CHAR_COUNT = 0
 DOCUMENT_PAGE_COUNT = None
 DOCUMENT_CHUNK_COUNT = 0
 
-rag_index = RAGIndex(min_chunk_chars=200, max_chunk_chars=2000, overlap_chars=150)
+# These hold the pre-built data loaded from disk
+chunks = []
+word_vectorizer = None
+word_matrix = None
+char_vectorizer = None
+char_matrix = None
+daily_snippets = []
 
 
-def load_yalkut_yosef():
-    """Auto-load the Yalkut Yosef document and build the RAG index."""
-    global DOCUMENT_TEXT, DOCUMENT_FILENAME, DOCUMENT_CHAR_COUNT
-    global DOCUMENT_PAGE_COUNT, DOCUMENT_CHUNK_COUNT
-
-    docx_path = os.path.join(BASE_DIR, "ילקוט-יוסף-קיצור-שולחן-ערוך.docx")
-    pdf_path = os.path.join(BASE_DIR, "ילקוט-יוסף-קיצור-שולחן-ערוך.pdf")
-
-    if os.path.exists(docx_path):
-        print(f"\n{'='*60}")
-        print(f"[*] טוען מסמך DOCX: {os.path.basename(docx_path)}")
-        print(f"{'='*60}")
-        DOCUMENT_TEXT = extract_text_from_docx(docx_path)
-        DOCUMENT_FILENAME = "ילקוט-יוסף-קיצור-שולחן-ערוך.docx"
-    elif os.path.exists(pdf_path):
-        print(f"\n{'='*60}")
-        print(f"[*] טוען מסמך PDF: {os.path.basename(pdf_path)}")
-        print(f"{'='*60}")
-        DOCUMENT_TEXT = extract_text_from_pdf(pdf_path)
-        DOCUMENT_FILENAME = "ילקוט-יוסף-קיצור-שולחן-ערוך.pdf"
-    else:
-        print("[!] שגיאה: לא נמצא קובץ ילקוט יוסף בתיקיית הפרויקט!")
-        return
-
-    DOCUMENT_CHAR_COUNT = len(DOCUMENT_TEXT)
-    DOCUMENT_PAGE_COUNT = (
-        DOCUMENT_TEXT.count("--- עמוד") if "--- עמוד" in DOCUMENT_TEXT else None
-    )
-
-    print(f"[✓] מסמך נטען בהצלחה: {DOCUMENT_FILENAME}")
-    print(f"    תווים: {DOCUMENT_CHAR_COUNT:,}")
-    if DOCUMENT_PAGE_COUNT:
-        print(f"    עמודים: {DOCUMENT_PAGE_COUNT}")
-
-    # Build the RAG search index
-    print("[*] בונה אינדקס חיפוש (TF-IDF + char n-grams)...")
-    rag_index.build(DOCUMENT_TEXT)
-    DOCUMENT_CHUNK_COUNT = len(rag_index.chunks)
-    print(f"[✓] אינדקס מוכן — {DOCUMENT_CHUNK_COUNT:,} קטעים")
-    print(f"{'='*60}\n")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  Feature #11: Daily Halacha — smart snippet extraction
-# ══════════════════════════════════════════════════════════════════════════════
-
-# Regex for lines that open a proper halachic section/paragraph
-_CLEAN_START_RE = re.compile(
-    r'^(?:'
-    r'סעיף\s+[א-ת\d"\']+|'        # סעיף א'
-    r'סימן\s+[א-ת\d"\']+|'        # סימן שב
-    r'הלכה\s+[א-ת\d"\']+|'        # הלכה ג'
-    r'פרק\s+[א-ת\d"\']+|'         # פרק א'
-    r'הלכות\s+\S+|'               # הלכות שבת
-    r'[א-ת]'                       # any line starting with a Hebrew letter
-    r')'
-)
-
-# Sentence-ending punctuation used in halachic texts
-_SENTENCE_END_RE = re.compile(r'[.׃:]\s*$')
-
-# Regex for extracting topic context (הלכות שבת, הלכות ברכות, etc.)
-_TOPIC_RE = re.compile(r'^הלכות\s+(\S+(?:\s+\S+)?)')
-# Regex for extracting siman context (סימן שב, סימן א', etc.)
-_SIMAN_RE = re.compile(r'^סימן\s+([א-ת\d"\']+)')
-
-daily_snippets: list[dict] = []
-
-
-def build_daily_snippets():
-    """Build a curated list of complete, self-contained halachic paragraphs
-    suitable for the daily-halacha feature.  Each snippet dict has:
-      - text: the snippet content (100-600 chars, starts/ends cleanly)
-      - topic: the broader halachic topic (e.g. 'הלכות שבת')
-      - siman: the exact siman (e.g. 'סימן שב')
-    """
+def load_prebuilt_index():
+    """Load the pre-computed TF-IDF index and chunks from the data/ folder."""
+    global chunks, word_vectorizer, word_matrix, char_vectorizer, char_matrix
     global daily_snippets
-    if not DOCUMENT_TEXT:
-        return
+    global DOCUMENT_FILENAME, DOCUMENT_CHAR_COUNT, DOCUMENT_PAGE_COUNT, DOCUMENT_CHUNK_COUNT
 
-    # Split the full document on blank lines → natural paragraphs
-    raw_paragraphs = re.split(r'\n{2,}', DOCUMENT_TEXT)
+    print(f"\n{'='*60}")
+    print("[*] טוען אינדקס מובנה מתיקיית data/...")
+    print(f"{'='*60}")
 
-    candidates: list[dict] = []
-    last_topic = ""
-    last_siman = ""
+    try:
+        # Load metadata
+        metadata_path = os.path.join(DATA_DIR, "metadata.json")
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
 
-    for para in raw_paragraphs:
-        para = para.strip()
-        if not para:
-            continue
+        DOCUMENT_FILENAME = metadata["document_filename"]
+        DOCUMENT_CHAR_COUNT = metadata["char_count"]
+        DOCUMENT_PAGE_COUNT = metadata.get("page_count")
+        DOCUMENT_CHUNK_COUNT = metadata["chunk_count"]
 
-        # Track topic and siman context as we scan through the document
-        topic_match = _TOPIC_RE.match(para)
-        if topic_match:
-            last_topic = "הלכות " + topic_match.group(1)
+        # Load pre-built objects
+        chunks = joblib.load(os.path.join(DATA_DIR, "chunks.joblib"))
+        word_vectorizer = joblib.load(os.path.join(DATA_DIR, "word_vectorizer.joblib"))
+        word_matrix = joblib.load(os.path.join(DATA_DIR, "word_matrix.joblib"))
+        char_vectorizer = joblib.load(os.path.join(DATA_DIR, "char_vectorizer.joblib"))
+        char_matrix = joblib.load(os.path.join(DATA_DIR, "char_matrix.joblib"))
+        daily_snippets = joblib.load(os.path.join(DATA_DIR, "daily_snippets.joblib"))
 
-        siman_match = _SIMAN_RE.match(para)
-        if siman_match:
-            last_siman = "סימן " + siman_match.group(1)
+        print(f"[✓] מסמך: {DOCUMENT_FILENAME}")
+        print(f"    תווים: {DOCUMENT_CHAR_COUNT:,}")
+        if DOCUMENT_PAGE_COUNT:
+            print(f"    עמודים: {DOCUMENT_PAGE_COUNT}")
+        print(f"    קטעים: {DOCUMENT_CHUNK_COUNT:,}")
+        print(f"    קטעי הלכה יומית: {len(daily_snippets):,}")
+        print(f"[✓] אינדקס נטען בהצלחה — צריכת זיכרון מינימלית")
+        print(f"{'='*60}\n")
 
-        if len(para) < 80:
-            continue
-
-        # Must start with a recognisable Hebrew opening
-        if not _CLEAN_START_RE.match(para):
-            continue
-
-        # Strip page markers that bleed in from PDF extraction
-        cleaned = re.sub(r'---\s*עמוד\s+\d+\s*---', '', para).strip()
-        if len(cleaned) < 80:
-            continue
-
-        snippet_text = None
-
-        # If the paragraph is short enough, take it whole
-        if len(cleaned) <= 600:
-            snippet_text = cleaned
-        else:
-            # Otherwise, trim to a sentence boundary within 600 chars
-            window = cleaned[:600]
-            # Search backwards for sentence-ending punctuation
-            best_cut = -1
-            for m in _SENTENCE_END_RE.finditer(window):
-                best_cut = m.end()
-            if best_cut >= 100:
-                snippet_text = window[:best_cut].strip()
-            else:
-                # Fallback: cut at last full stop / colon
-                for ch in ('.', ':', '׃'):
-                    idx = window.rfind(ch)
-                    if idx >= 100:
-                        snippet_text = window[:idx + 1].strip()
-                        break
-
-        if snippet_text:
-            candidates.append({
-                "text": snippet_text,
-                "topic": last_topic,
-                "siman": last_siman,
-            })
-
-    daily_snippets = candidates
-    print(f"[✓] הלכה יומית: {len(daily_snippets):,} קטעים ראויים")
+    except Exception as e:
+        print(f"[!] שגיאה בטעינת אינדקס: {e}")
+        print("[!] יש להריץ build_index.py לפני הפריסה!")
+        DOCUMENT_CHUNK_COUNT = 0
 
 
-# Load once at startup
-load_yalkut_yosef()
-build_daily_snippets()
+def search_index(query, top_k=10):
+    """Search the pre-built TF-IDF index. Same logic as the original RAGIndex.search()."""
+    if word_vectorizer is None or word_matrix is None:
+        return []
+
+    # Feature #16: Remove stop words from query
+    clean_query = remove_stop_words(query)
+
+    # Word-level scores
+    word_vec = word_vectorizer.transform([clean_query])
+    word_scores = cosine_similarity(word_vec, word_matrix).flatten()
+
+    # Feature #17: Character n-gram scores for fuzzy matching
+    char_scores = np.zeros_like(word_scores)
+    if char_vectorizer is not None and char_matrix is not None:
+        char_vec = char_vectorizer.transform([query])  # use original query for char n-grams
+        char_scores = cosine_similarity(char_vec, char_matrix).flatten()
+
+    # Combine: 70% word + 30% char n-gram
+    combined_scores = 0.7 * word_scores + 0.3 * char_scores
+
+    # Get top-K indices, sorted by score descending
+    top_indices = np.argsort(combined_scores)[::-1][:top_k]
+
+    results = []
+    for idx in top_indices:
+        score = float(combined_scores[idx])
+        if score < 0.01:
+            break  # below noise floor — skip
+        results.append({
+            "chunk_id": int(idx),
+            "score": round(score, 4),
+            "text": chunks[idx],
+        })
+
+    return results
+
+
+# Load once at startup — fast, memory-light
+load_prebuilt_index()
 load_cache()
-
-# ── Free RAM: delete the massive raw text now that index + snippets are built ──
-DOCUMENT_TEXT = ""
-gc.collect()
-print("[✓] זיכרון שוחרר: מחרוזת המסמך הגולמית נמחקה")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -628,7 +344,7 @@ def ask_question():
         })
 
     # ── Step 1: Retrieve relevant chunks locally (no API call) ────────────
-    retrieved = rag_index.search(question, top_k=10)
+    retrieved = search_index(question, top_k=10)
 
     if not retrieved:
         log_search(question, topic_name, False, 0, False)
