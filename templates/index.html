@@ -2,9 +2,18 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>בוט ילקוט יוסף</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <!-- Apple PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Yalkut">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Feature #4: html2pdf.js for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1010,6 +1019,26 @@
             font-size: 0.85rem;
         }
 
+        .city-selector {
+            width: 100%;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.85rem;
+            background: var(--bg-input);
+            color: var(--text);
+            margin-bottom: 0.8rem;
+            direction: rtl;
+            cursor: pointer;
+            appearance: auto;
+        }
+
+        .city-selector:focus {
+            outline: none;
+            border-color: var(--primary-light);
+        }
+
         /* Limud Yomi section */
         .limud-yomi-section {
             border-top: 1px solid var(--border);
@@ -1362,6 +1391,7 @@
                         <div class="live-clock" id="liveClock">--:--:--</div>
                     </div>
                     <div class="hebrew-date" id="hebrewDate">טוען תאריך עברי...</div>
+                    <select class="city-selector" id="citySelector" onchange="onCityChange()"></select>
                     <div class="zmanim-grid" id="zmanimGrid">
                         <div class="zmanim-loading">&#9203; טוען זמני היום...</div>
                     </div>
@@ -1552,6 +1582,11 @@
             document.getElementById('loading').classList.add('visible');
             document.getElementById('errorMsg').classList.remove('visible');
 
+            // Auto-scroll to loading indicator
+            setTimeout(() => {
+                document.getElementById('loading').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+
             try {
                 const response = await fetch('/ask', {
                     method: 'POST',
@@ -1616,6 +1651,11 @@
 
                     chatHistory.insertBefore(chatItem, chatHistory.firstChild);
                     input.value = '';
+
+                    // Auto-scroll to the new answer
+                    setTimeout(() => {
+                        chatItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 150);
                 } else {
                     showError(data.error, data.error_type);
                 }
@@ -1836,7 +1876,105 @@
         updateClock();
 
         // ══════════════════════════════════════════════════════════════════
-        //  Zmanim & Hebrew Date (Hebcal API)
+        //  City list for Zmanim (geonameid for Hebcal API)
+        // ══════════════════════════════════════════════════════════════════
+        const CITIES = [
+            // ── ישראל ──
+            { name: 'ירושלים', id: 281184, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'תל אביב', id: 293397, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'חיפה', id: 294801, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'באר שבע', id: 295530, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'בני ברק', id: 295514, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'בית שמש', id: 295432, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'פתח תקווה', id: 293918, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'אשדוד', id: 295629, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'נתניה', id: 294098, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'אשקלון', id: 295620, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'ראשון לציון', id: 293703, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'רמת גן', id: 293788, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'חולון', id: 294751, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'הרצליה', id: 294778, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'כפר סבא', id: 294514, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'רחובות', id: 293725, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'רעננה', id: 293807, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'מודיעין', id: 282926, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'אילת', id: 295277, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'טבריה', id: 293322, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'צפת', id: 293100, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            { name: 'בת ים', id: 295548, tz: 'Asia/Jerusalem', group: 'ישראל' },
+            // ── ארה"ב ──
+            { name: 'ניו יורק', id: 5128581, tz: 'America/New_York', group: 'ארה"ב' },
+            { name: 'לוס אנג\'לס', id: 5368361, tz: 'America/Los_Angeles', group: 'ארה"ב' },
+            { name: 'מיאמי', id: 4164138, tz: 'America/New_York', group: 'ארה"ב' },
+            { name: 'שיקגו', id: 4887398, tz: 'America/Chicago', group: 'ארה"ב' },
+            { name: 'לייקווד', id: 5099836, tz: 'America/New_York', group: 'ארה"ב' },
+            { name: 'בולטימור', id: 4347778, tz: 'America/New_York', group: 'ארה"ב' },
+            { name: 'בוסטון', id: 4930956, tz: 'America/New_York', group: 'ארה"ב' },
+            { name: 'פילדלפיה', id: 4560349, tz: 'America/New_York', group: 'ארה"ב' },
+            // ── אירופה ──
+            { name: 'לונדון', id: 2643743, tz: 'Europe/London', group: 'אירופה' },
+            { name: 'פריז', id: 2988507, tz: 'Europe/Paris', group: 'אירופה' },
+            { name: 'ברלין', id: 2950159, tz: 'Europe/Berlin', group: 'אירופה' },
+            { name: 'אמסטרדם', id: 2759794, tz: 'Europe/Amsterdam', group: 'אירופה' },
+            { name: 'אנטוורפן', id: 2803138, tz: 'Europe/Brussels', group: 'אירופה' },
+            { name: 'רומא', id: 3169070, tz: 'Europe/Rome', group: 'אירופה' },
+            { name: 'וינה', id: 2761369, tz: 'Europe/Vienna', group: 'אירופה' },
+            { name: 'מנצ\'סטר', id: 2643123, tz: 'Europe/London', group: 'אירופה' },
+            { name: 'מוסקבה', id: 524901, tz: 'Europe/Moscow', group: 'אירופה' },
+            // ── עולם ──
+            { name: 'טורונטו', id: 6167865, tz: 'America/Toronto', group: 'עולם' },
+            { name: 'מונטריאול', id: 6077243, tz: 'America/Montreal', group: 'עולם' },
+            { name: 'בואנוס איירס', id: 3435910, tz: 'America/Argentina/Buenos_Aires', group: 'עולם' },
+            { name: 'סאו פאולו', id: 3448439, tz: 'America/Sao_Paulo', group: 'עולם' },
+            { name: 'מלבורן', id: 2158177, tz: 'Australia/Melbourne', group: 'עולם' },
+            { name: 'סידני', id: 2147714, tz: 'Australia/Sydney', group: 'עולם' },
+            { name: 'יוהנסבורג', id: 993800, tz: 'Africa/Johannesburg', group: 'עולם' },
+            { name: 'מקסיקו סיטי', id: 3530597, tz: 'America/Mexico_City', group: 'עולם' },
+            { name: 'מומבאי', id: 1275339, tz: 'Asia/Kolkata', group: 'עולם' },
+        ];
+
+        let selectedCityId = 281184; // default: Jerusalem
+
+        function buildCitySelector() {
+            const sel = document.getElementById('citySelector');
+            const saved = localStorage.getItem('zmanimCity');
+            if (saved) selectedCityId = parseInt(saved);
+
+            // Group cities
+            const groups = {};
+            for (const c of CITIES) {
+                if (!groups[c.group]) groups[c.group] = [];
+                groups[c.group].push(c);
+            }
+
+            sel.innerHTML = '';
+            for (const [groupName, cities] of Object.entries(groups)) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = groupName;
+                for (const c of cities) {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    if (c.id === selectedCityId) opt.selected = true;
+                    optgroup.appendChild(opt);
+                }
+                sel.appendChild(optgroup);
+            }
+        }
+
+        function getSelectedCity() {
+            return CITIES.find(c => c.id === selectedCityId) || CITIES[0];
+        }
+
+        function onCityChange() {
+            const sel = document.getElementById('citySelector');
+            selectedCityId = parseInt(sel.value);
+            localStorage.setItem('zmanimCity', selectedCityId);
+            loadZmanim();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  Zmanim & Hebrew Date (Hebcal API) — dynamic by city
         // ══════════════════════════════════════════════════════════════════
         const ZMAN_LABELS = {
             'alotHaShachar': 'עלות השחר',
@@ -1863,10 +2001,10 @@
 
         async function loadZmanim() {
             try {
+                const city = getSelectedCity();
                 const today = new Date();
                 const dateStr = today.toISOString().split('T')[0];
-                // Hebcal Zmanim API — Jerusalem (geonameid 281184)
-                const res = await fetch(`https://www.hebcal.com/zmanim?cfg=json&geonameid=281184&date=${dateStr}`);
+                const res = await fetch(`https://www.hebcal.com/zmanim?cfg=json&geonameid=${city.id}&date=${dateStr}`);
                 const data = await res.json();
 
                 const grid = document.getElementById('zmanimGrid');
@@ -1878,7 +2016,7 @@
                     if (!val) continue;
                     const label = ZMAN_LABELS[key] || key;
                     const timeStr = new Date(val).toLocaleTimeString('he-IL', {
-                        timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false
+                        timeZone: city.tz, hour: '2-digit', minute: '2-digit', hour12: false
                     });
                     const item = document.createElement('div');
                     item.className = 'zman-item';
@@ -1908,47 +2046,50 @@
         }
 
         // ══════════════════════════════════════════════════════════════════
-        //  Limud Yomi (Hebcal Learning API)
+        //  Limud Yomi (Sefaria Calendars API — free, no key needed)
         // ══════════════════════════════════════════════════════════════════
-        const LIMUD_LABELS = {
-            'dafyomi': 'דף יומי (בבלי)',
-            'yerushalmi': 'ירושלמי יומי',
-            'mishnayomi': 'משנה יומית',
-            'nachyomi': 'נ"ך יומי',
-            'rambam1': 'רמב"ם יומי',
-            'chofetzChaim': 'חפץ חיים יומי',
-            'shpiralshon': 'שמירת הלשון',
-            'psalms': 'תהילים יומי',
-            'dafWeekly': 'דף שבועי',
-            'pirkeiAvot': 'פרקי אבות',
-            'hebdate': '',
-        };
-
         async function loadLimudYomi() {
             try {
-                const today = new Date();
-                const dateStr = today.toISOString().split('T')[0];
-                // Use the Hebcal main API which returns proper JSON with Daf Yomi
-                const res = await fetch(`https://www.hebcal.com/hebcal?v=1&cfg=json&start=${dateStr}&end=${dateStr}&D=on&d=off&F=off&leyning=off`);
+                const res = await fetch('https://www.sefaria.org/api/calendars');
                 if (!res.ok) throw new Error('API error');
                 const data = await res.json();
 
                 const grid = document.getElementById('limudYomiGrid');
                 grid.innerHTML = '';
 
-                const items = (data.items || []).filter(item => item.category && item.category !== 'hebdate');
+                const items = data.calendar_items || [];
+                // Show the most relevant daily study items
+                const wanted = ['Daf Yomi', 'Daily Mishnah', 'Daily Rambam', 'Halacha Yomit', '929', 'Arukh HaShulchan Yomi'];
+                const shown = [];
 
-                if (items.length) {
+                for (const item of items) {
+                    const titleEn = (item.title && item.title.en) || '';
+                    const titleHe = (item.title && item.title.he) || titleEn;
+                    const valueHe = (item.displayValue && item.displayValue.he) || (item.displayValue && item.displayValue.en) || '';
+                    if (!valueHe) continue;
+                    if (wanted.length && !wanted.some(w => titleEn.includes(w))) continue;
+
+                    const el = document.createElement('div');
+                    el.className = 'zman-item';
+                    el.innerHTML = `<span class="zman-name">${escapeHtml(titleHe)}</span><span class="zman-time" style="font-size:0.82rem;">${escapeHtml(valueHe)}</span>`;
+                    grid.appendChild(el);
+                    shown.push(titleEn);
+                }
+
+                if (!grid.children.length) {
+                    // Fallback: show all items
                     for (const item of items) {
-                        const cat = item.category || '';
-                        const label = LIMUD_LABELS[cat] || cat || 'לימוד יומי';
-                        const title = item.title || '';
+                        const titleHe = (item.title && item.title.he) || '';
+                        const valueHe = (item.displayValue && item.displayValue.he) || '';
+                        if (!titleHe || !valueHe) continue;
                         const el = document.createElement('div');
                         el.className = 'zman-item';
-                        el.innerHTML = `<span class="zman-name">${escapeHtml(label)}</span><span class="zman-time" style="font-size:0.82rem;">${escapeHtml(title)}</span>`;
+                        el.innerHTML = `<span class="zman-name">${escapeHtml(titleHe)}</span><span class="zman-time" style="font-size:0.82rem;">${escapeHtml(valueHe)}</span>`;
                         grid.appendChild(el);
                     }
-                } else {
+                }
+
+                if (!grid.children.length) {
                     grid.innerHTML = '<div class="zmanim-loading">לא נמצא לימוד יומי</div>';
                 }
             } catch {
@@ -2154,13 +2295,25 @@
             }
         }
 
-        // Initialize Zmanim, Hebrew Date, Limud Yomi, and Calendar on load
+        // Initialize city selector, Zmanim, Hebrew Date, Limud Yomi, and Calendar on load
         document.addEventListener('DOMContentLoaded', () => {
+            buildCitySelector();
             loadZmanim();
             loadHebrewDate();
             loadLimudYomi();
             renderCalendar();
         });
+
+        // ══════════════════════════════════════════════════════════════════
+        //  PWA: Service Worker Registration
+        // ══════════════════════════════════════════════════════════════════
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then((reg) => {
+                console.log('[PWA] Service Worker registered, scope:', reg.scope);
+            }).catch((err) => {
+                console.log('[PWA] Service Worker registration failed:', err);
+            });
+        }
 
         function formatAnswer(text) {
             let formatted = escapeHtml(text);

@@ -5,7 +5,7 @@ import hashlib
 import random
 import joblib
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -295,6 +295,18 @@ load_cache()
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/sw.js")
+def service_worker():
+    """Serve service worker from root scope for PWA."""
+    return send_from_directory("static", "sw.js", mimetype="application/javascript")
+
+
+@app.route("/manifest.json")
+def manifest():
+    """Serve manifest from root for PWA."""
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
 
 
 @app.route("/status", methods=["GET"])
