@@ -137,6 +137,33 @@
             border-radius: 2px;
         }
 
+        /* PWA Install button */
+        .pwa-install-btn {
+            background: var(--gold);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 20px;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Heebo', sans-serif;
+            white-space: nowrap;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .pwa-install-btn.visible {
+            display: inline-flex;
+        }
+
+        .pwa-install-btn:hover {
+            background: var(--gold-light);
+            transform: translateY(-1px);
+        }
+
         /* Feature #5: Dark mode toggle */
         .theme-toggle {
             background: rgba(255,255,255,0.15);
@@ -1282,7 +1309,7 @@
     <div class="header">
         <div class="header-content">
             <div class="header-top-bar">
-                <div></div>
+                <button class="pwa-install-btn" id="pwaInstallBtn" onclick="installPWA()">&#128228; התקן אפליקציה</button>
                 <!-- Feature #5: Theme toggle -->
                 <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">&#127769; מצב לילה</button>
             </div>
@@ -2305,13 +2332,52 @@
         });
 
         // ══════════════════════════════════════════════════════════════════
-        //  PWA: Service Worker Registration
+        //  PWA: Service Worker Registration + Install Prompt
         // ══════════════════════════════════════════════════════════════════
+        let deferredInstallPrompt = null;
+
+        // Listen for the browser's install prompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the default mini-infobar
+            e.preventDefault();
+            // Save the event for later
+            deferredInstallPrompt = e;
+            // Show our custom install button
+            document.getElementById('pwaInstallBtn').classList.add('visible');
+            console.log('[PWA] Install prompt ready');
+        });
+
+        // Handle the install button click
+        function installPWA() {
+            if (!deferredInstallPrompt) return;
+            // Show the browser's install prompt
+            deferredInstallPrompt.prompt();
+            // Wait for the user's response
+            deferredInstallPrompt.userChoice.then((result) => {
+                console.log('[PWA] User choice:', result.outcome);
+                if (result.outcome === 'accepted') {
+                    document.getElementById('pwaInstallBtn').classList.remove('visible');
+                    showToast('האפליקציה הותקנה בהצלחה!');
+                }
+                deferredInstallPrompt = null;
+            });
+        }
+
+        // Hide install button if app is already installed
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwaInstallBtn').classList.remove('visible');
+            deferredInstallPrompt = null;
+            console.log('[PWA] App installed');
+        });
+
+        // Register the service worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').then((reg) => {
-                console.log('[PWA] Service Worker registered, scope:', reg.scope);
-            }).catch((err) => {
-                console.log('[PWA] Service Worker registration failed:', err);
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then((reg) => {
+                    console.log('[PWA] Service Worker registered, scope:', reg.scope);
+                }).catch((err) => {
+                    console.log('[PWA] Service Worker registration failed:', err);
+                });
             });
         }
 

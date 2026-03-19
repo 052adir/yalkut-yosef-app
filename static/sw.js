@@ -1,14 +1,11 @@
-const CACHE_NAME = 'yalkut-yosef-v2';
+const CACHE_NAME = 'yalkut-yosef-v3';
 
+// Only precache same-origin resources guaranteed to exist
 const PRECACHE_URLS = [
   '/',
-  '/static/manifest.json',
-  '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap',
 ];
 
-// Install: pre-cache static assets
+// Install: pre-cache core shell only
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -28,32 +25,37 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: network-first for API calls, cache-first for static assets
+// Fetch: network-first for API calls, stale-while-revalidate for static assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
 
   // Never cache API calls (ask, daily, status, feedback)
   if (url.pathname.startsWith('/ask') ||
       url.pathname.startsWith('/daily') ||
       url.pathname.startsWith('/status') ||
       url.pathname.startsWith('/feedback')) {
-    event.respondWith(fetch(event.request));
     return;
   }
 
-  // Cache-first for everything else (static assets, fonts, page shell)
+  // Cache-first for static assets, with network fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Only cache successful same-origin or CORS responses
-        if (!response || response.status !== 200) return response;
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, clone);
-        });
+      const fetchPromise = fetch(event.request).then((response) => {
+        // Only cache successful responses
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clone);
+          });
+        }
         return response;
-      });
+      }).catch(() => null);
+
+      // Return cached version immediately, update in background
+      return cached || fetchPromise;
     }).catch(() => {
       // Offline fallback for navigation
       if (event.request.mode === 'navigate') {
